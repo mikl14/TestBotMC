@@ -1,9 +1,14 @@
 package io.projectBot.TestBot.service;
 
+import org.quartz.*;
+import org.quartz.impl.StdSchedulerFactory;
 import io.projectBot.TestBot.config.BotConfig;
+import org.springframework.boot.autoconfigure.batch.BatchProperties;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updates.GetUpdates;
+import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
@@ -12,12 +17,23 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
     final BotConfig config;
     String[] masterClassesNames = new String[]{"Прога", "Пайка", "Кринж", "База", "Скуфирование"};
     MasterClassList masterClasses = new MasterClassList(MasterClassFactory.createMasterClasses(masterClassesNames, 10));
+
+    Notification[] notifications = new Notification[]{
+            new Notification(LocalTime.of(20,0,0),"Сейчас 8 вечера!"),
+            new Notification(LocalTime.of(19,0,0),"Сейчас 7 вечера!"),
+            new Notification(LocalTime.of(18,0,0),"Сейчас 6 вечера!"),
+            new Notification(LocalTime.of(17,16,0),"Сейчас 5 вечера!"),
+            new Notification(LocalTime.of(16,40,0),"Сейчас 4.5 вечера!")
+    };
 
     public TelegramBot(BotConfig config) {
         this.config = config;
@@ -39,6 +55,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         if (update.hasMessage() && update.getMessage().hasText()) {
             String messageText = update.getMessage().getText();
             long ChatId = update.getMessage().getChatId();
+            ChatsDatas.writeChatId(update.hasMessage() ? update.getMessage().getChat().getId() : update.getCallbackQuery().getMessage().getChat().getId());
             switch (messageText) {
 
                 case "/OnlyAdminCheck":
@@ -131,6 +148,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     private void SendMessage(long chatId, String Text) {
         SendMessage message = new SendMessage();
+        System.out.println("Chat! " + String.valueOf(chatId));
         message.setChatId(String.valueOf(chatId));
         message.setText(Text);
         try {
@@ -164,19 +182,30 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
 
-    public void sendReminder() {
-        LocalTime now = LocalTime.now();
-        if (now.getHour() == 17 && now.getMinute() == 0) {
-            SendMessage message = new SendMessage();
-            message.setChatId("YOUR_CHAT_ID");
-            message.setText("Напоминание !");
-            try {
-                execute(message);
-            } catch (TelegramApiException e) {
-                e.printStackTrace();
-            }
-        }
+
+    public void startSendingMessages() {
+        ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
+        LocalTime specifiedTime = LocalTime.of(12, 0); // Время для отправки сообщения
+
+        executor.scheduleAtFixedRate(() -> {
+            LocalTime currentTime = LocalTime.now();
+
+            List<Long> ChatIds = ChatsDatas.getChatIds();
+
+            System.out.println(ChatIds.toString());
+                for (Notification notification:notifications)
+                {
+                    if (currentTime.getHour() == notification.getEventTime().getHour() && currentTime.getMinute() == notification.getEventTime().getMinute()) {
+                        for(Long chatId:ChatIds) {
+                           SendMessage(chatId, notification.getMessage());
+                        }
+                    }
+                }
+                System.out.println("not time");
+
+        }, 0, 20, TimeUnit.SECONDS); // проверять раз в 30 сек
     }
 
-
 }
+
+
