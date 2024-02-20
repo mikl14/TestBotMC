@@ -1,39 +1,28 @@
 package io.projectBot.TestBot.service;
 
-import org.quartz.*;
-import org.quartz.impl.StdSchedulerFactory;
 import io.projectBot.TestBot.config.BotConfig;
-import org.springframework.boot.autoconfigure.batch.BatchProperties;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.meta.api.methods.send.SendDocument;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.methods.updates.GetUpdates;
-import org.telegram.telegrambots.meta.api.objects.Chat;
+import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import java.time.LocalTime;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
     final BotConfig config;
-    String[] masterClassesNames = new String[]{"Прога", "Пайка", "Кринж", "База", "Скуфирование"};
+    String[] masterClassesNames = new String[]{"Подтверждаю","Назад"};
     MasterClassList masterClasses = new MasterClassList(MasterClassFactory.createMasterClasses(masterClassesNames, 10));
 
-    Notification[] notifications = new Notification[]{
-            new Notification(LocalTime.of(20,0,0),"Сейчас 8 вечера!"),
-            new Notification(LocalTime.of(19,0,0),"Сейчас 7 вечера!"),
-            new Notification(LocalTime.of(18,0,0),"Сейчас 6 вечера!"),
-            new Notification(LocalTime.of(17,16,0),"Сейчас 5 вечера!"),
-            new Notification(LocalTime.of(16,40,0),"Сейчас 4.5 вечера!")
-    };
+    String adminedChatId = "-4168573346";
 
     public TelegramBot(BotConfig config) {
         this.config = config;
@@ -65,9 +54,9 @@ public class TelegramBot extends TelegramLongPollingBot {
                 case "/start":
                 case "/info":
 
-                    SendMessage(ChatId, "Я Бот помощник форума НАЗВАНИЕ !, В течении всего дня форума я буду информировать вас о новых событиях на форуме, так же через меня вы можете записаться на мастер класс!");
+                    SendMessage(ChatId, "Я Бот Учебно-методической комиссии");
                     try {
-                        execute(createKeyboard(ChatId, new String[]{"Расписание форума", "Запись на мастер класс", "Организаторы"}));
+                        execute(createKeyboard(ChatId, new String[]{"О нас", "Получить консультацию", "Методички","Бланк"}));
                     } catch (TelegramApiException ex) {
                         throw new RuntimeException(ex);
                     }
@@ -75,51 +64,54 @@ public class TelegramBot extends TelegramLongPollingBot {
                     break;
                 case "Назад":
                     try {
-                        execute(createKeyboard(ChatId, new String[]{"Расписание форума", "Запись на мастер класс", "Организаторы"}));
+                        execute(createKeyboard(ChatId, new String[]{"О нас", "Получить консультацию", "Методички"}));
                     } catch (TelegramApiException ex) {
                         throw new RuntimeException(ex);
                     }
                     break;
-                case "Запись на мастер класс":
-                    try {
-                        execute(createKeyboard(ChatId, masterClassesNames));
-                    } catch (TelegramApiException e) {
-                        throw new RuntimeException(e);
+                case "Получить консультацию":
+                    SendMessage(ChatId, "Напишите предмет для консультации в формате : \"Предмет: название \"");
+                    break;
+                case "О нас":
+                    SendMessage(ChatId,"УМК (Учебно-методическая Комиссия) Профкома студентов\n" +
+                            "Вниманию студентов 1-2 курса!\n" +
+                            "\n" +
+                            "Если у Вас возникают проблемы с учебой:\n" +
+                            "· если Вам необходимо объяснить сложный материал,\n" +
+                            "· если вдруг не получается решить домашнее задание или рубежный контроль,\n" +
+                            "· если нужна помощь в подготовке к рубежному контролю, модулю, защите домашнего задания или экзамену\n" +
+                            "\n" +
+                            "В рамках работы Учебной Методической Комиссии Профсоюза студентов МГТУ им. Н.Э. Баумана Ваши друзья готовы помочь в решении проблем.");
+                    break;
+                case "Методички":
+                    SendMessage(ChatId, "Тут список ссылок на все что нам надо");
+                    break;
+                case  "Бланк":
+                    try
+                    {
+                        ClassPathResource resource = new ClassPathResource("blank.pdf");
+                        InputStream inputStream = resource.getInputStream();
+
+                        InputFile ss = new InputFile();
+                        ss.setMedia(inputStream,"blank.pdf");
+                        execute(sendDocument(ChatId,"Ваш бланк",ss));
                     }
-                    break;
-                case "Расписание форума":
-                    SendMessage(ChatId, "11:00\t✅ Выступление главного спикера\n" +
-                            "11:45\t✅ Панельная дискуссия по технологическим трендам\n" +
-                            "12:30\t✅ Мастер-класс по искусственному интеллекту\n" +
-                            "13:15\t✅ Обеденный перерыв\n" +
-                            "14:00\t✅ Презентация новой технологии\n" +
-                            "14:45\t✅ Круглый стол по кибербезопасности\n" +
-                            "15:30\t✅ Доклад о перспективах развития Интернета вещей\n" +
-                            "16:15\t✅ Заключительное слово и награждение победителей конкурса инноваций");
-                    break;
-                case "Организаторы":
-                    SendMessage(ChatId, "ВЦ фрязино я думаю...");
+                    catch (Exception e)
+                    {
+                        SendMessage(ChatId, "Что-то пошло не так попробуйте позже");
+                    }
                     break;
                 default:
-                    MasterClass currentMaster = masterClasses.findByName(messageText);
-                    if (currentMaster != null) {
-                        switch (currentMaster.checkUser(update.getMessage().getFrom().getUserName())) {
-                            case 1:
-                                SendMessage(ChatId, "Вы успешно записались на мастер класс: " + currentMaster.name + "\nкак: " + update.getMessage().getFrom().getUserName()
-                                        + "\nОсталось свободных записей: " + currentMaster.getFreeBooking() + "\n для отмены своей записи выберите запись на этот мастер класс повторно");
-                                break;
-                            case 0:
-                                SendMessage(ChatId, "Ваша запись на мастер класс: " + currentMaster.name + "\nкак: " + update.getMessage().getFrom().getUserName()
-                                        + "\nУспешно отменена!");
-                                break;
-                            case -1:
-                                SendMessage(ChatId, "Все места на этот мастер класс уже забронированы, но вы можете выбрать другой!");
-                                break;
-                        }
-                        XmlService.writeItemsToCategory();
-                    } else {
-                        SendMessage(ChatId, "Хм... я не знаю эту команду напишите /info чтобы начать работу со мной");
+                    if(messageText.contains("Предмет:"))
+                    {
+                        SendMessage(ChatId, "Вы успешно записались на консультацию: " + "\nкак: " + update.getMessage().getFrom().getUserName());
+                        SendMessage(Long.parseLong(adminedChatId), '@'+update.getMessage().getFrom().getUserName() + " Записался на консультацию ! \n\n"+messageText+'\n'+ "\nНапишите ему в ближайшее время!");
                     }
+                    else
+                    {
+                        SendMessage(ChatId, "Хм... я не могу понять проверьте правильность написания");
+                    }
+
             }
 
         } else if (update.hasCallbackQuery()) {
@@ -127,12 +119,8 @@ public class TelegramBot extends TelegramLongPollingBot {
             long ChatId = update.getCallbackQuery().getMessage().getChatId();
 
             switch (query) {
-                case "Запись на мастер класс":
-                    try {
-                        execute(createKeyboard(ChatId, masterClassesNames));
-                    } catch (TelegramApiException e) {
-                        throw new RuntimeException(e);
-                    }
+                case "Получить консультацию":
+                        SendMessage(ChatId, "Напишите предмет для консультации в формате : \"Предмет: название \"");
                     break;
 
                 default:
@@ -169,9 +157,6 @@ public class TelegramBot extends TelegramLongPollingBot {
             keyboard.add(row);
         }
 
-        KeyboardRow row = new KeyboardRow();
-        row.add("Назад");
-        keyboard.add(row);
 
         keyboardMarkup.setKeyboard(keyboard);
         SendMessage message = new SendMessage();
@@ -181,29 +166,13 @@ public class TelegramBot extends TelegramLongPollingBot {
         return message;
     }
 
-
-
-    public void startSendingMessages() {
-        ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
-        LocalTime specifiedTime = LocalTime.of(12, 0); // Время для отправки сообщения
-
-        executor.scheduleAtFixedRate(() -> {
-            LocalTime currentTime = LocalTime.now();
-
-            List<Long> ChatIds = ChatsDatas.getChatIds();
-
-            System.out.println(ChatIds.toString());
-                for (Notification notification:notifications)
-                {
-                    if (currentTime.getHour() == notification.getEventTime().getHour() && currentTime.getMinute() == notification.getEventTime().getMinute()) {
-                        for(Long chatId:ChatIds) {
-                           SendMessage(chatId, notification.getMessage());
-                        }
-                    }
-                }
-                System.out.println("not time");
-
-        }, 0, 20, TimeUnit.SECONDS); // проверять раз в 30 сек
+    private static SendDocument sendDocument(long ChatId, String caption, InputFile sendFile)
+    {
+        SendDocument sendDocument = new SendDocument();
+        sendDocument.setChatId(String.valueOf(ChatId));
+        sendDocument.setCaption(caption);
+        sendDocument.setDocument(sendFile);
+        return  sendDocument;
     }
 
 }

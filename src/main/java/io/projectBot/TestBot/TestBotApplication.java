@@ -15,17 +15,7 @@ public class TestBotApplication {
 
 	public static void main(String[] args)
 	{
-
-
-
-
 		SpringApplication.run(TestBotApplication.class, args);
-
-		TelegramBot ss = new TelegramBot(new BotConfig());
-
-		ss.startSendingMessages();
-
-
 	}
 
 }
